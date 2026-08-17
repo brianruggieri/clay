@@ -706,6 +706,14 @@ impl Clay {
             }
         }
     }
+
+    /// Current scroll offset of the scroll container with `id`, if one exists.
+    /// Unlike [`ClayLayoutScope::scroll_offset`] this works before the element
+    /// is open, e.g. while building its `Declaration` for `.clip()`.
+    pub fn scroll_offset_for(&self, id: Id) -> Option<Vector2> {
+        self.scroll_container_data(id)
+            .map(|data| unsafe { *data.scrollPosition }.into())
+    }
 }
 
 #[cfg(feature = "std")]
