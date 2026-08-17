@@ -9,6 +9,7 @@ pub mod layout;
 pub mod math;
 pub mod render_commands;
 pub mod text;
+pub mod transition;
 
 mod mem;
 pub mod renderers;
@@ -126,6 +127,15 @@ impl<'render, ImageElementData: 'render, CustomElementData: 'render>
         &mut self,
     ) -> elements::CornerRadiusBuilder<'_, 'render, ImageElementData, CustomElementData> {
         elements::CornerRadiusBuilder::new(self)
+    }
+
+    /// Configures a transition (animation) for this element. Requires a stable
+    /// element id across frames and a handler (e.g. `.ease_out()`) to activate.
+    #[inline]
+    pub fn transition(
+        &mut self,
+    ) -> transition::TransitionBuilder<'_, 'render, ImageElementData, CustomElementData> {
+        transition::TransitionBuilder::new(self)
     }
 }
 
@@ -306,6 +316,18 @@ impl<'render, 'clay: 'render, ImageElementData: 'render, CustomElementData: 'ren
     /// Adds a text element to the current open element or to the root layout
     pub fn text(&self, text: &'render str, config: TextElementConfig) {
         unsafe { Clay__OpenTextElement(text.into(), config.into()) };
+    }
+
+    /// Attaches a hover callback to the currently open element (`Clay_OnHover`).
+    /// The callback fires each layout pass the pointer is over the element;
+    /// inspect `Clay_PointerData.state` for press/release edges. `user_data`
+    /// must stay valid until the layout pass ends.
+    pub fn on_hover(
+        &self,
+        callback: unsafe extern "C" fn(Clay_ElementId, Clay_PointerData, *mut core::ffi::c_void),
+        user_data: *mut core::ffi::c_void,
+    ) {
+        unsafe { Clay_OnHover(Some(callback), user_data) }
     }
 
     pub fn hovered(&self) -> bool {
@@ -629,6 +651,29 @@ impl Clay {
         unsafe { Clay_GetCurrentContext() }
     }
 
+    /// Ids of every element currently under the pointer, outermost first
+    /// (`Clay_GetPointerOverIds`). Valid for the current frame.
+    pub fn pointer_over_ids(&self) -> impl Iterator<Item = Id> + '_ {
+        let array = unsafe { Clay_GetPointerOverIds() };
+        let slice = if array.internalArray.is_null() {
+            &[]
+        } else {
+            unsafe { core::slice::from_raw_parts(array.internalArray, array.length as usize) }
+        };
+        slice.iter().map(|id| Id { id: *id })
+    }
+
+    /// Overrides how Clay queries scroll offsets, for externally-managed
+    /// scrolling (`Clay_SetQueryScrollOffsetFunction`). Pass `None` to clear.
+    /// `user_data` must outlive layout passes made while the callback is set.
+    pub fn set_query_scroll_offset_function(
+        &self,
+        callback: Option<unsafe extern "C" fn(u32, *mut core::ffi::c_void) -> Clay_Vector2>,
+        user_data: *mut core::ffi::c_void,
+    ) {
+        unsafe { Clay_SetQueryScrollOffsetFunction(callback, user_data) }
+    }
+
     fn element_data(id: Id) -> Clay_ElementData {
         unsafe { Clay_GetElementData(id.id) }
     }
@@ -707,6 +752,31 @@ mod tests {
     use super::*;
     use color::Color;
     use layout::{Padding, Sizing};
+
+    #[test]
+    fn transition_builder_sets_config() {
+        use transition::TransitionProperty;
+        let mut decl = Declaration::<(), ()>::new();
+        decl.transition()
+            .ease_out()
+            .duration(0.25)
+            .properties(TransitionProperty::POSITION | TransitionProperty::BACKGROUND_COLOR)
+            .allow_interactions_while_transitioning(true)
+            .exit_sibling_ordering(transition::ExitSiblingOrdering::AboveSiblings)
+            .end()
+            .overlay_color(Color::rgba(255., 255., 255., 128.));
+        let t = &decl.inner.transition;
+        assert!(t.handler.is_some());
+        assert_eq!(t.duration, 0.25);
+        assert_eq!(
+            t.properties,
+            Clay_TransitionProperty_CLAY_TRANSITION_PROPERTY_POSITION
+                | Clay_TransitionProperty_CLAY_TRANSITION_PROPERTY_BACKGROUND_COLOR
+        );
+        assert_eq!(t.interactionHandling, 1);
+        assert_eq!(t.exit.siblingOrdering, 2);
+        assert_eq!(decl.inner.overlayColor.a, 128.);
+    }
 
     #[rustfmt::skip]
     #[test]
