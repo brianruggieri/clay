@@ -330,12 +330,19 @@ impl<'render, 'clay: 'render, ImageElementData: 'render, CustomElementData: 'ren
         unsafe { Clay_OnHover(Some(callback), user_data) }
     }
 
+    /// Returns if the currently *open* element is hovered.
+    ///
+    /// Note: while building a `Declaration` for [`Self::with`], the element is
+    /// not open yet — `hovered()` there refers to its parent. Inside the
+    /// children closure it refers to the element itself. To test the element
+    /// being declared, use `pointer_over(id)` with its id instead.
     pub fn hovered(&self) -> bool {
         unsafe { Clay_Hovered() }
     }
 
     /// True when the currently open element is hovered and the pointer was
-    /// pressed this frame.
+    /// pressed this frame. The same open-element caveat as [`Self::hovered`]
+    /// applies.
     pub fn clicked(&self) -> bool {
         self.hovered() && unsafe { Clay_GetPointerState() }.state
             == Clay_PointerDataInteractionState_CLAY_POINTER_DATA_PRESSED_THIS_FRAME
