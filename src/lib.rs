@@ -436,7 +436,7 @@ impl Clay {
     /// The ID is unique within a specific local scope but not globally.
     #[inline]
     pub fn id_local(&self, label: &str) -> id::Id {
-        id::Id::new_index_local(label, 0)
+        id::Id::new_local(label)
     }
 
     /// Generates a locally unique indexed ID based on the given `label` and `index`.
