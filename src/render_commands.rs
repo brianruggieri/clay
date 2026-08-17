@@ -173,6 +173,10 @@ pub enum RenderCommandConfig<'a, ImageElementData, CustomElementData> {
     Image(Image<'a, ImageElementData>),
     ScissorStart(),
     ScissorEnd(),
+    /// Begin blending all subsequent commands toward this color (strength = alpha).
+    OverlayColorStart(crate::color::Color),
+    /// End the most recent overlay color.
+    OverlayColorEnd(),
     Custom(Custom<'a, CustomElementData>),
 }
 
@@ -197,10 +201,17 @@ impl<ImageElementData, CustomElementData>
             }
             Clay_RenderCommandType_CLAY_RENDER_COMMAND_TYPE_SCISSOR_START => Self::ScissorStart(),
             Clay_RenderCommandType_CLAY_RENDER_COMMAND_TYPE_SCISSOR_END => Self::ScissorEnd(),
+            Clay_RenderCommandType_CLAY_RENDER_COMMAND_TYPE_OVERLAY_COLOR_START => {
+                Self::OverlayColorStart(unsafe { value.renderData.overlayColor.color }.into())
+            }
+            Clay_RenderCommandType_CLAY_RENDER_COMMAND_TYPE_OVERLAY_COLOR_END => {
+                Self::OverlayColorEnd()
+            }
             Clay_RenderCommandType_CLAY_RENDER_COMMAND_TYPE_CUSTOM => Self::Custom(unsafe {
                 Custom::from_clay_custom_element_data(value.renderData.custom)
             }),
-            _ => unreachable!(),
+            // Unknown/future command types must not crash downstream renderers.
+            _ => Self::None(),
         }
     }
 }

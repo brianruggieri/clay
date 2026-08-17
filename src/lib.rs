@@ -50,6 +50,22 @@ impl<'render, ImageElementData: 'render, CustomElementData: 'render>
         self
     }
 
+    /// Blends this element and all children toward `color`; strength is the
+    /// color's alpha (0 = untouched, 255 = fully replaced). Emits
+    /// `OverlayColorStart`/`OverlayColorEnd` render commands.
+    #[inline]
+    pub fn overlay_color(&mut self, color: Color) -> &mut Self {
+        self.inner.overlayColor = color.into();
+        self
+    }
+
+    /// Passes an opaque pointer through to this element's render commands.
+    #[inline]
+    pub fn user_data(&mut self, data: *mut core::ffi::c_void) -> &mut Self {
+        self.inner.userData = data;
+        self
+    }
+
     /// Sets aspect ratio for image elements.
     #[inline]
     pub fn aspect_ratio(&mut self, aspect_ratio: f32) -> &mut Self {
@@ -159,6 +175,33 @@ where
     let tuple = &*(user_data as *const (F, usize));
     let text_config = TextConfig::from(*config);
     (tuple.0)(text, &text_config).into()
+}
+
+/// The pointer interaction state across a press/release cycle.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PointerState {
+    PressedThisFrame,
+    Pressed,
+    ReleasedThisFrame,
+    Released,
+}
+
+/// Current pointer position and interaction state (`Clay_GetPointerState`).
+#[derive(Debug, Clone, Copy)]
+pub struct PointerData {
+    pub position: Vector2,
+    pub state: PointerState,
+}
+
+impl PointerData {
+    /// True on the single frame the pointer was pressed.
+    pub fn just_pressed(&self) -> bool {
+        self.state == PointerState::PressedThisFrame
+    }
+    /// True on the single frame the pointer was released.
+    pub fn just_released(&self) -> bool {
+        self.state == PointerState::ReleasedThisFrame
+    }
 }
 
 unsafe extern "C" fn error_handler(error_data: Clay_ErrorData) {
@@ -480,7 +523,22 @@ impl Clay {
     /// **Use only if you know what you are doing or your getting errors from clay**
     pub fn max_measure_text_cache_word_count(&self, count: u32) {
         unsafe {
-            Clay_SetMaxElementCount(count as _);
+            Clay_SetMaxMeasureTextCacheWordCount(count as _);
+        }
+    }
+
+    /// Clears Clay's internal text measurement cache. Call when external factors
+    /// (e.g. DPI changes) invalidate previous measurements.
+    pub fn reset_measure_text_cache(&self) {
+        unsafe {
+            Clay_ResetMeasureTextCache();
+        }
+    }
+
+    /// Enables or disables visibility culling of render commands (enabled by default).
+    pub fn set_culling_enabled(&self, enabled: bool) {
+        unsafe {
+            Clay_SetCullingEnabled(enabled);
         }
     }
 
@@ -519,6 +577,56 @@ impl Clay {
     /// Returns if the current element you are creating is hovered
     pub fn hovered(&self) -> bool {
         unsafe { Clay_Hovered() }
+    }
+
+    /// Returns whether Clay's debug inspector is currently enabled. The inspector's
+    /// own close button can flip this without a call to [`Self::set_debug_mode`].
+    pub fn debug_mode(&self) -> bool {
+        unsafe { Clay_IsDebugModeEnabled() }
+    }
+
+    /// Returns the current internal layout dimensions.
+    pub fn layout_dimensions(&self) -> Dimensions {
+        unsafe { Clay_GetLayoutDimensions().into() }
+    }
+
+    /// Returns the current pointer position and interaction state
+    /// (as previously fed via [`Self::pointer_state`]).
+    pub fn pointer_data(&self) -> PointerData {
+        let data = unsafe { Clay_GetPointerState() };
+        PointerData {
+            position: data.position.into(),
+            state: match data.state {
+                Clay_PointerDataInteractionState_CLAY_POINTER_DATA_PRESSED_THIS_FRAME => {
+                    PointerState::PressedThisFrame
+                }
+                Clay_PointerDataInteractionState_CLAY_POINTER_DATA_PRESSED => PointerState::Pressed,
+                Clay_PointerDataInteractionState_CLAY_POINTER_DATA_RELEASED_THIS_FRAME => {
+                    PointerState::ReleasedThisFrame
+                }
+                _ => PointerState::Released,
+            },
+        }
+    }
+
+    /// Returns the element id registered for `label`, for querying elements
+    /// outside layout declaration (equivalent of C's `Clay_GetElementId`).
+    pub fn element_id(&self, label: &str) -> Id {
+        Id {
+            id: unsafe { Clay_GetElementId(label.into()) },
+        }
+    }
+
+    /// Indexed variant of [`Self::element_id`] (`Clay_GetElementIdWithIndex`).
+    pub fn element_id_with_index(&self, label: &str, index: u32) -> Id {
+        Id {
+            id: unsafe { Clay_GetElementIdWithIndex(label.into(), index) },
+        }
+    }
+
+    /// Raw pointer to the active Clay context (`Clay_GetCurrentContext`).
+    pub fn current_context() -> *mut Clay_Context {
+        unsafe { Clay_GetCurrentContext() }
     }
 
     fn element_data(id: Id) -> Clay_ElementData {
