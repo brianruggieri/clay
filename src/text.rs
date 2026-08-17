@@ -23,10 +23,10 @@ pub enum TextAlignment {
 }
 
 pub struct TextElementConfig {
-    inner: *mut Clay_TextElementConfig,
+    inner: Clay_TextElementConfig,
 }
 
-impl From<TextElementConfig> for *mut Clay_TextElementConfig {
+impl From<TextElementConfig> for Clay_TextElementConfig {
     fn from(value: TextElementConfig) -> Self {
         value.inner
     }
@@ -107,11 +107,12 @@ impl TextConfig {
         self
     }
 
-    /// Finalizes the text configuration and stores it in memory.
+    /// Finalizes the text configuration.
     #[inline]
     pub fn end(&self) -> TextElementConfig {
-        let memory = unsafe { Clay__StoreTextElementConfig((*self).into()) };
-        TextElementConfig { inner: memory }
+        TextElementConfig {
+            inner: (*self).into(),
+        }
     }
 }
 

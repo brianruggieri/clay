@@ -327,7 +327,7 @@ pub fn create_layout<'render>(
         },
     );
 
-    clay.end()
+    clay.end(0.0)
 }
 
 use crate::UIState;

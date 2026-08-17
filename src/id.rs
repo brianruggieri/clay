@@ -1,5 +1,11 @@
 use crate::bindings::*;
 
+// Declared in clay.h's implementation but no longer in its public prototypes;
+// the symbol is still exported from the compiled translation unit.
+extern "C" {
+    fn Clay__GetParentElementId() -> u32;
+}
+
 #[derive(Debug, Copy, Clone)]
 pub struct Id {
     pub id: Clay_ElementId,

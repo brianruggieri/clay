@@ -246,10 +246,13 @@ impl<'render, 'clay: 'render, ImageElementData: 'render, CustomElementData: 'ren
         }
     }
 
+    /// Ends the layout pass. `delta_time` is the time since the last frame in
+    /// seconds, used by Clay's transition (animation) system; pass 0.0 if unused.
     pub fn end(
         &mut self,
+        delta_time: f32,
     ) -> impl Iterator<Item = RenderCommand<'render, ImageElementData, CustomElementData>> {
-        let array = unsafe { Clay_EndLayout() };
+        let array = unsafe { Clay_EndLayout(delta_time) };
         self.dropped = true;
         let slice = unsafe { core::slice::from_raw_parts(array.internalArray, array.length as _) };
         slice
@@ -295,7 +298,7 @@ impl<ImageElementData, CustomElementData> Drop
     fn drop(&mut self) {
         if !self.dropped {
             unsafe {
-                Clay_EndLayout();
+                Clay_EndLayout(0.0);
             }
         }
     }
@@ -671,7 +674,7 @@ mod tests {
             );
         });
 
-        let items = clay.end();
+        let items = clay.end(0.0);
 
         for item in items {
             println!(
@@ -707,6 +710,6 @@ mod tests {
                 .end());
         });
 
-        let _items = clay.end();
+        let _items = clay.end(0.0);
     }
 }
