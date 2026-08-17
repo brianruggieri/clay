@@ -25,7 +25,7 @@ impl Id {
     /// Parent-scoped id (C's `CLAY_ID_LOCAL`).
     #[inline]
     pub(crate) fn new_local(label: &str) -> Id {
-        let id = unsafe { Clay__HashString(label.into(), Clay_GetOpenElementId().id) };
+        let id = unsafe { Clay__HashString(label.into(), Clay_GetOpenElementId()) };
         Id { id }
     }
 
@@ -33,7 +33,7 @@ impl Id {
     #[inline]
     pub(crate) fn new_index_local(label: &str, index: u32) -> Id {
         let id = unsafe {
-            Clay__HashStringWithOffset(label.into(), index, Clay_GetOpenElementId().id)
+            Clay__HashStringWithOffset(label.into(), index, Clay_GetOpenElementId())
         };
         Id { id }
     }
