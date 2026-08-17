@@ -334,6 +334,13 @@ impl<'render, 'clay: 'render, ImageElementData: 'render, CustomElementData: 'ren
         unsafe { Clay_Hovered() }
     }
 
+    /// True when the currently open element is hovered and the pointer was
+    /// pressed this frame.
+    pub fn clicked(&self) -> bool {
+        self.hovered() && unsafe { Clay_GetPointerState() }.state
+            == Clay_PointerDataInteractionState_CLAY_POINTER_DATA_PRESSED_THIS_FRAME
+    }
+
     pub fn scroll_offset(&self) -> Vector2 {
         unsafe { Clay_GetScrollOffset().into() }
     }
